@@ -11,7 +11,14 @@
 
 int theLen;
 char** theArray;
-pthread_mutex_t* theArrayLocks;
+typedef struct {
+    pthread_mutex_t theMutex;
+    pthread_cond_t theCanReadCond;
+    pthread_cond_t theCanWriteCond;
+
+    int theNextTicket;
+} theLock_t;
+theLock_t* theLocks;
 
 pthread_mutex_t nextClientMutex;
 pthread_cond_t handlerIsIdleCond;
@@ -20,7 +27,7 @@ pthread_cond_t incomingClientCond;
 int incomingClient = NULL;
 int idleHandlers = 0;
 
-void* handleClient(void*)
+void* handle(void*)
 {
     int clientSocket;
     char str[COM_BUFF_SIZE];
@@ -63,14 +70,17 @@ int main(int argc, char* argv[])
 
     // Initialize theArray and theArrayLocks
     theArray = (char**)malloc(theLen * sizeof(char*));
-    theArrayLocks = (pthread_mutex_t*)malloc(theLen * sizeof(pthread_mutex_t));
+    theLocks = (theLock_t*)malloc(theLen * sizeof(theLock_t));
     for (int i = 0; i < theLen; i++) {
         theArray[i] = (char*)malloc(COM_BUFF_SIZE * sizeof(char));
-        pthread_mutex_init(&theArrayLocks[i], NULL);
+        // pthread_mutex_init(&theArrayLocks[i], NULL);
     }
 
+    // Initialize the threads
     pthread_t* t = malloc(COM_NUM_REQUEST*sizeof(pthread_t));
-    // TODO - init threads
+    for (int i = 0; i < COM_NUM_REQUEST; i++) {
+        pthread_create(&t[i], NULL, handle, NULL);
+    }
 
     // Initialize socket info
     struct sockaddr_in sock_var;
