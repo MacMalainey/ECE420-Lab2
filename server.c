@@ -18,7 +18,7 @@ pthread_cond_t handlerIsIdleCond;
 pthread_cond_t incomingClientCond;
 
 int incomingClient = NULL;
-int theThreadsWaiting = 0;
+int idleHandlers = 0;
 
 void* handleClient(void*)
 {
@@ -29,10 +29,10 @@ void* handleClient(void*)
     while (1) {
         pthread_mutex_lock(&nextClientMutex);
         while (incomingClient == NULL) {
-            theThreadsWaiting++;
+            idleHandlers++;
             pthread_cond_signal(&handlerIsIdleCond);
             pthread_cond_wait(&incomingClientCond, &nextClientMutex);
-            theThreadsWaiting--;
+            idleHandlers--;
         }
 
         clientSocket = incomingClient;
@@ -95,12 +95,12 @@ int main(int argc, char* argv[])
         int next = accept(hostSocket, NULL, NULL);
 
         pthread_mutex_lock(&nextClientMutex);
-        while (theThreadsWaiting <= 0) {
-            pthread_cond_signal(&incomingClientCond);
+        while (idleHandlers <= 0) {
             pthread_cond_wait(&handlerIsIdleCond, &nextClientMutex);
         }
 
         incomingClient = next;
+        pthread_cond_signal(&incomingClientCond);
         pthread_mutex_unlock(&nextClientMutex);
     }
     close(hostSocket);
